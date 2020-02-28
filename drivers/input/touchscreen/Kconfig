@@ -1495,4 +1495,6 @@ config TOUCHSCREEN_HIMAX_HX852XF_DEBUG
 
 source "drivers/input/touchscreen/hx852xf/Kconfig"
 
+source "drivers/input/touchscreen/focaltech_touch_tb8504/Kconfig"
+
 endif
