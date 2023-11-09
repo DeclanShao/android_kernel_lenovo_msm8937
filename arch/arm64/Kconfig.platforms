@@ -354,4 +354,35 @@ config ARCH_ZYNQMP
 	help
 	  This enables support for Xilinx ZynqMP Family
 
+config MACH_LENOVO
+	bool "Lenovo devices"
+	help
+	  This enables support for Lenovo devices.
+
+if MACH_LENOVO
+
+config MACH_LENOVO_MSM8953
+	bool
+	select ARCH_QCOM
+	select ARCH_MSM8953
+
+choice
+	prompt "Lenovo device"
+	default MACH_LENOVO_DUMMY
+
+config MACH_LENOVO_DUMMY
+	bool "Dummy device"
+	help
+	  A stub configuration that doesn't enable support for anything.
+
+config MACH_LENOVO_TB8703
+	bool "TB8703 board"
+	select MACH_LENOVO_MSM8953
+	help
+	  This enables support for Lenovo P8.
+
+endchoice
+
+endif
+
 endmenu
