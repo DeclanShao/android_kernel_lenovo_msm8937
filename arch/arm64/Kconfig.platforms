@@ -381,6 +381,12 @@ config MACH_LENOVO_TB8703
 	help
 	  This enables support for Lenovo P8.
 
+config MACH_LENOVO_TB8504
+    bool "TB8504 board"
+	select MACH_LENOVO_MSM8953
+	help
+	  This enables support for Lenovo Tab 4 8.
+
 endchoice
 
 endif
