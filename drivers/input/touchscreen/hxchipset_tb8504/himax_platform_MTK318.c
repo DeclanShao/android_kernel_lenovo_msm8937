@@ -405,7 +405,7 @@ static int touch_event_handler(void *ptr)
 #ifdef HX_SMART_WAKEUP
 		if (atomic_read(&private_ts->suspend_mode)&&(!FAKE_POWER_KEY_SEND)&&(private_ts->SMWP_enable)) {
 			I("Start to parse wake event\n");
-			wake_lock_timeout(&private_ts->ts_SMWP_wake_lock, TS_WAKE_LOCK_TIMEOUT);
+			__pm_wakeup_event(&private_ts->ts_SMWP_wake_lock, TS_WAKE_LOCK_TIMEOUT);
 			msleep(200);
 			himax_wake_check_func();
 			continue;

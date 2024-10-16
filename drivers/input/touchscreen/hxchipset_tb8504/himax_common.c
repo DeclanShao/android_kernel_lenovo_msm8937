@@ -1671,7 +1671,7 @@ himax_read_FW_ver(client);
 
 #ifdef HX_SMART_WAKEUP
 	ts->SMWP_enable=0;
-	wake_lock_init(&ts->ts_SMWP_wake_lock, WAKE_LOCK_SUSPEND, HIMAX_common_NAME);
+	wakeup_source_init(&ts->ts_SMWP_wake_lock, HIMAX_common_NAME);
 	
 	ts->himax_smwp_wq = create_singlethread_workqueue("HMX_SMWP_WORK");
 		if (!ts->himax_smwp_wq) {
@@ -1713,7 +1713,7 @@ err_hsen_wq_failed:
 #endif
 #ifdef HX_SMART_WAKEUP
 err_smwp_wq_failed:
-	wake_lock_destroy(&ts->ts_SMWP_wake_lock);
+	wakeup_source_trash(&ts->ts_SMWP_wake_lock);
 #endif
 #ifdef CONFIG_FB
 err_get_intr_bit_failed:
@@ -1770,7 +1770,7 @@ int himax_chip_common_remove(struct i2c_client *client)
 	input_unregister_device(ts->input_dev);
 
 #ifdef HX_SMART_WAKEUP
-		wake_lock_destroy(&ts->ts_SMWP_wake_lock);
+		wakeup_source_trash(&ts->ts_SMWP_wake_lock);
 #endif
 	kfree(ts);
 
