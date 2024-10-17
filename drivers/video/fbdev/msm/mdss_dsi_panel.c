@@ -47,6 +47,68 @@ int panel_id_ret;
 
 #define VSYNC_DELAY msecs_to_jiffies(17)
 
+#ifdef CONFIG_MACH_LENOVO_TB8504
+char *auo_panel_name = "rm68200 800p video mode dsi panel";
+int compare_tp_id = 0;
+int compare_lcd_id = 0;
+int  ID0_status = 0,ID1_status = 0;
+#endif
+
+#ifdef CONFIG_MACH_LENOVO_TB8504
+extern int compare_lcd_id;
+
+enum {
+	LCM_UNKNOW = 0,
+	LCM_AUO,
+	LCM_INX
+};
+
+static unsigned int lcm_type = LCM_UNKNOW;
+
+extern int is_inx_lcm(void);
+extern int is_auo_lcm(void);
+extern u32 p3588_bl_level;
+
+int is_inx_lcm(void)
+{
+	return (lcm_type == LCM_INX);
+}
+
+int is_auo_lcm(void)
+{
+	return (lcm_type == LCM_AUO);
+}
+
+static int
+config_lcm_type(const char *panel_name)
+{
+	printk("[%s], start \n", __func__);
+
+	if (!strcmp(panel_name, 
+		"rm68200 800p video mode dsi panel")) {
+
+		lcm_type = LCM_AUO;
+		printk("rm68200 800p video mode dsi panel \n");
+	}
+	else if (!strcmp(panel_name, 
+		"hx83100a 800p video mode dsi panel")) {
+		
+		lcm_type = LCM_INX;
+		printk("hx83100a 800p video mode dsi panel \n");
+	}
+	else {
+		printk("unknow panel name \n");
+		return 0;
+	}
+
+	printk("[%s], done \n", __func__);
+	return 1;
+}
+
+int tp_rst_gpio;
+
+#endif
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -239,6 +301,51 @@ static struct dsi_cmd_desc backlight_cmd = {
 static int previous_level = 0;
 #endif
 
+#ifdef CONFIG_MACH_LENOVO_TB8504
+static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
+{
+	struct dcs_cmd_req cmdreq;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &(ctrl->panel_data.panel_info);
+	if (pinfo->dcs_cmd_by_left) {
+		if (ctrl->ndx != DSI_CTRL_LEFT)
+			return;
+	}
+
+	pr_debug("%s: level=%d\n", __func__, level);
+	if(compare_lcd_id == 3){
+	////printk("andy.%s compare_lcd_id = %d\n",__func__,compare_lcd_id);
+		memset(&cmdreq, 0, sizeof(cmdreq));
+		cmdreq.cmds_cnt = 1;
+		cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;	
+
+		led_pwm3[1] = (unsigned char)((level & 0xff0)>>4);
+		led_pwm3[2] = (unsigned char)(level & 0x0f);
+		///printk("andy.%s led_pwm3[1]= 0x%x,led_pwm3[2]=0x%x\n",__func__,led_pwm3[1],led_pwm3[2]);
+
+		cmdreq.cmds = &backlight_cmd2;
+		mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		cmdreq.cmds = &backlight_cmd3;
+		mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		//cmdreq.cmds = &backlight_cmd4;
+		//mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+	}
+
+	led_pwm1[1] = (unsigned char)level;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &backlight_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+#else
 static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
 	struct dcs_cmd_req cmdreq;
@@ -308,6 +415,7 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 #endif
 }
+#endif
 
 static void mdss_dsi_panel_set_idle_mode(struct mdss_panel_data *pdata,
 							bool enable)
@@ -380,6 +488,11 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			rc);
 		goto rst_gpio_err;
 	}
+
+#ifdef CONFIG_MACH_LENOVO_TB8504
+    tp_rst_gpio = ctrl_pdata->rst_gpio;
+#endif
+
 	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 		rc = gpio_request(ctrl_pdata->bklt_en_gpio,
 						"bklt_enable");
@@ -518,6 +631,14 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				usleep_range(100, 110);
 			}
 
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	if (compare_lcd_id ==3)
+		{
+			gpio_direction_output(64,1);	
+			mdelay(1);
+		}
+#endif
+
 			if (pdata->panel_info.rst_seq_len) {
 				rc = gpio_direction_output(ctrl_pdata->rst_gpio,
 					pdata->panel_info.rst_seq[0]);
@@ -595,6 +716,13 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		}
 #ifndef CONFIG_MACH_LENOVO_TB8703
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
+#ifdef CONFIG_MACH_LENOVO_TB8504
+		if (compare_lcd_id ==3)
+			{
+			  gpio_direction_output(64,0);	
+			  mdelay(1);
+			}
+#endif
 		gpio_free(ctrl_pdata->rst_gpio);
 #endif
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
@@ -1012,7 +1140,12 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s: ndx=%d cmd_cnt=%d\n", __func__,
 				ctrl->ndx, on_cmds->cmd_cnt);
-
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	if (is_inx_lcm()) {
+		printk("mdelay 50 ms \n");
+		mdelay(50);
+	}
+#endif
 	if (on_cmds->cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, on_cmds, CMD_REQ_COMMIT);
 
@@ -3084,6 +3217,10 @@ error:
 	return -EINVAL;
 }
 
+#ifdef CONFIG_MACH_LENOVO_TB8504
+static struct mdss_dsi_ctrl_pdata *esd_ctrl;
+#endif
+
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	int ndx)
@@ -3107,6 +3244,14 @@ int mdss_dsi_panel_init(struct device_node *node,
 						__func__, __LINE__);
 	} else {
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	config_lcm_type(panel_name);
+
+	if(!strcmp(auo_panel_name, panel_name))
+		compare_tp_id = 1;
+	else
+		compare_tp_id = 2;
+#endif
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
 #ifdef CONFIG_TOUCHSCREEN_HIMAX_HX852XF
@@ -3140,5 +3285,57 @@ int mdss_dsi_panel_init(struct device_node *node,
 			mdss_dsi_panel_apply_display_setting;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
 	ctrl_pdata->panel_data.get_idle = mdss_dsi_panel_get_idle_mode;
+#ifdef CONFIG_MACH_LENOVO_TB8504
+	ID0_status = gpio_get_value(59);
+	ID1_status = gpio_get_value(66);
+	printk("swb.%s:get lcd_detect id0=%d,id1=%d\n", __func__,ID0_status,ID1_status);
+	if((ID0_status == 0)&&(ID1_status == 0)){
+		compare_lcd_id = 1;
+	}else if((ID0_status == 1)&&(ID1_status == 0)){
+		compare_lcd_id = 2;
+	}else{
+		compare_lcd_id = 3;
+	}
+#endif
 	return 0;
 }
+
+#ifdef CONFIG_MACH_LENOVO_TB8504
+/*lct--lyh--add for esd check start*/
+void HX_report_ESD_event(void)
+{
+	struct dcs_cmd_req cmdreq;
+//	int level = 255;
+	if (p3588_bl_level < 5)
+	p3588_bl_level = p3588_bl_level + 1;
+	led_pwm1[1] = (unsigned char)p3588_bl_level;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &backlight_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	if (esd_ctrl->off_cmds.cmd_cnt)
+	{	printk("[lyh] down cmd off!\n");
+		mdss_dsi_panel_cmds_send(esd_ctrl, &esd_ctrl->off_cmds, CMD_REQ_COMMIT);
+	}
+	//gpio_set_value(tp_rst_gpio, 0);
+	//mdelay(20);
+	gpio_set_value(tp_rst_gpio, 1);
+	mdelay(20);
+	gpio_set_value(tp_rst_gpio, 0);
+	mdelay(20);
+	gpio_set_value(tp_rst_gpio, 1);
+	mdelay(50);
+	if (esd_ctrl->on_cmds.cmd_cnt) {
+		printk("[lyh] down cmd on!\n");
+		mdss_dsi_panel_cmds_send(esd_ctrl, &esd_ctrl->on_cmds, CMD_REQ_COMMIT);
+	}
+
+	mdss_dsi_cmdlist_put(esd_ctrl, &cmdreq);
+	
+}
+/*lct--lyh--add for esd check end*/
+#endif
